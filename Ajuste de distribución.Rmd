@@ -1,0 +1,348 @@
+---
+title: "Ajuste de distribución"
+author: "Mabel Álvarez"
+date: "`r Sys.Date()`"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+## Ajuste de distribución
+
+Librerías
+
+```{r}
+install.packages('quantmod')
+```
+
+
+```{r cars}
+library(moments)
+library(nortest)
+library(ggplot2)
+library(dplyr)
+library(tseries)
+library(quantmod)
+library(zoo)
+library(lubridate)
+library(tidyverse)
+library(car)
+library(astsa)
+library(foreign)
+library(lmtest)
+library(dynlm)
+library(nlme)
+library(lmtest)
+library(broom)
+library(kableExtra)
+library(knitr)
+library(MASS)
+library(parallel)
+library(car)
+library(mlogit)
+library(dplyr)
+library(tidyr)
+library(forecast)
+library(fpp2)
+library(stats)
+
+```
+
+
+```{r}
+#Televisa <- read.csv(file.choose())
+```
+
+
+## Actividad
+
+Utilizar una serie empírica (económica, acción, commodity, crytpocurrency, etc.) para aplicar la metodología de ajuste de distribución revisada en la sesión. Se recomienda considerar un periodo de observaciones de un año.
+
+```{r}
+#Obtener información en Yahoo
+
+Televisa<-getSymbols("TV", from="2020-01-01", src = "yahoo", 
+                    auto.assign = F)[,6]
+
+```
+
+## Gráfica
+
+```{r}
+plot(Televisa, col = "violet")
+```
+
+## 1. Gráfica de serie de datos.
+
+```{r}
+#Se obtiene la grafica del proceso 
+ggplot(Televisa, aes(x=1:nrow(Televisa), y=TV.Adjusted))+
+  geom_line(col="blue",
+            size=1)+
+  labs(title="Serie de precios Televisa",
+       y="Precio",
+       x="Observaciones")
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+## 2. Gráfica de densidad de la serie de datos.
+
+```{r}
+#Se obtiene la densidad de la serie
+ggplot(Televisa, aes(x=TV.Adjusted))+
+  geom_density(color= "red",
+               fill = "grey",
+               alpha = 0.5)+
+  labs(title="Gráfica de densidad",
+       y="Density",
+       x="Televisa precio")
+```
+
+## Histograma
+
+```{r}
+#Se obtiene el histograma de la serie
+ggplot(Televisa, aes(x=TV.Adjusted))+
+  geom_histogram(color= "blue",
+               fill = "grey",
+               alpha = 0.5)+
+    labs(title="Histograma",
+       y="Count",
+       x="Televisa precio")
+```
+
+## 3. Resultado de la prueba estadística ADF.
+
+```{r}
+#Se estima la prueba Augemnted Dickey-Fuller
+tv.adf.test <- adf.test(Televisa)
+tv.adf.test
+```
+
+Como el p-value es >.05, entonces la serie tiene raíz unitaria, por tanto, no es estacionaria.
+
+## 4. Mencionar  si  fue  necesario  obtener  rendimientos  logarítmicos  de  la  serie  y  dar  una explicación.
+
+En este caso, es necesario obtener los rendimientos logarítmicos con la finalidad de inducir estacionariedad y que pueda ser modelada.
+Una ventaja por la que se suelen preferir los rendimientos logarítmicos es la forma de agregación de los periodos. Un rendimiento logarítmico de k-periodos es la suma de los rendimientos logarítmicos individuales; a diferencia del producto para los rendimientos simples.
+
+```{r}
+#En esta linea de código se estiman las diferencias logarítmicas aplicando de manera anidada las funciones diff() y log()
+tv.L1.return <- diff(log(Televisa))
+#se almacenan las diferencias logarítminas en un data frame para poder graficarlas mediante ggplot2()
+tv.L1.return.df <- as.data.frame(tv.L1.return)
+ggplot(tv.L1.return.df, aes(x=1:nrow(tv.L1.return.df),y=tv.L1.return))+
+  geom_line(col="violet",
+            size=1)+
+  labs(title="Retornos Logarítmicos Televisa",
+       y="Rendimiento",
+       x="Observaciones")
+```
+
+## ADF logarítmica
+
+```{r}
+#Se estima nuevamente la prueba Dickey-Fuller para determinar si la diferenciación induji la estacionariedad a la serie.
+tv.L1.return2 <- na.omit(tv.L1.return)
+
+tv.L1.return.adf.test <- adf.test(tv.L1.return2)
+
+tv.L1.return.adf.test 
+```
+
+```{r}
+#Se obtiene la densidad de la serie
+ggplot(tv.L1.return2, aes(x=TV.Adjusted))+
+  geom_density(color= "red",
+               fill = "grey",
+               alpha = 0.5)+
+  labs(title="Gráfica de densidad",
+       y="Density",
+       x="Televisa precio")
+```
+
+
+```{r}
+#Se obtiene el histograma de la serie
+ggplot(tv.L1.return2, aes(x=TV.Adjusted))+
+  geom_histogram(color= "blue",
+               fill = "grey",
+               alpha = 0.5)+
+    labs(title="Histograma",
+       y="Count",
+       x="Televisa precio")
+```
+
+## Estadística descriptiva de las series de rendimientos
+
+## 5. Estadística descriptiva de la serie, dando una breve explicación de la media, desviación estándar, sesgo y kurtosis.
+
+
+```{r}
+#Se estiman la estadística descriptiva de las series de rendimientos.
+mean(tv.L1.return2)
+```
+
+```{r}
+var(tv.L1.return2)
+```
+
+```{r}
+skewness(tv.L1.return2)
+```
+
+```{r}
+kurtosis(tv.L1.return2)
+```
+
+Debido a que la kurtosis es >3, la distribución muestral es leptocúrticas.
+Existe asimetría y parece ser no-normal, kurtosis mayor a 3 y varianza diferente de 0 y los rendimientos son negativos.
+
+```{r}
+qqnorm(tv.L1.return2$TV.Adjusted, pch = 1, col="violet", frame = FALSE)
+qqline(tv.L1.return2$TV.Adjusted, col = "steelblue", lwd = 2)
+```
+## 6. Resultado de la prueba de normalidad Jarque-Bera y una breve explicación.
+
+```{r}
+#Se estima la prueba de normalidad Jarque-Bera
+jarque.bera.test(tv.L1.return2)
+```
+
+Como p-value < .05 , entonces la serie no sigue una distribución normal.
+
+## 7. Parámetros de la distribución NIG que ajustan los datos.
+
+```{r}
+install.packages("GeneralizedHyperbolic")
+```
+
+```{r}
+library(GeneralizedHyperbolic)
+```
+
+```{r}
+#obtención de parámetros de la distribucion empirica
+fit.tv <- nigFit(tv.L1.return2)
+#Se realiza el ajuste de la distribución con los parámetros obtenidos
+adj.tv <- rnig(length(tv.L1.return2),mu=fit.tv$param[1],delta=fit.tv$param[2],alpha =fit.tv$param[3],beta =fit.tv$param[4])
+```
+
+```{r}
+tv.param.mu <- fit.tv$param[1]
+tv.param.delta <- fit.tv$param[2]
+tv.param.alpha <- fit.tv$param[3]
+tv.param.beta <- fit.tv$param[4]
+tv.param.mu 
+```
+
+```{r}
+tv.param.delta 
+```
+
+```{r}
+tv.param.alpha
+```
+
+
+```{r}
+tv.param.beta 
+```
+
+## 8. Resultados de las pruebas de bondad de ajuste y una breve explicación.
+
+```{r}
+install.packages("SuppDists")
+install.packages("kSamples")
+```
+
+```{r}
+library(SuppDists)
+library(kSamples)
+```
+
+```{r}
+#Bondad de ajuste
+#Es necesario desactivar las librerias moments y nortest para evitar conflictos con las funciones ad.test, qn.test y ks.test, con las funcioanes de las librerías SuppDists y kSamples.
+detach("package:moments", unload=TRUE)
+detach("package:nortest", unload=TRUE)
+```
+
+
+```{r}
+#Se ejecutn las pruebas de bondad de ajuste
+#Prueba Anderson-Darling
+ad.test(tv.L1.return2,adj.tv)
+```
+
+Las muestras provienen de la misma población, ya que p-value >.05
+
+
+```{r}
+#Prueba Kruscal-Wallis
+qn.test(tv.L1.return2,adj.tv)
+```
+
+```{r}
+#Prueba Kolmogorov-Smirnov
+ks.test(tv.L1.return2,adj.tv)
+```
+
+## 9. Gráficas de ajuste de la distribución y una breve descripción
+
+```{r}
+#Función que permite graficar la distribución normal, distribución empírica y distribución ajustada.
+graph.kdn <- function(x,y,z) {
+  name = toString(z)
+  mu <- mean(x,na.rm = T)
+  des <- sd(x, na.rm = T)
+  li <- mu - 5*des
+  lu <- mu + 5*des
+  x1 <- seq(li, lu, length=500)
+  z1 <- dnorm(x1, mu, des)
+  dz <- density(x)
+  dy <- density(y)
+  m1 <- max(dz$y)*1.1
+  plot(x1, z1, ylim=c(0, m1), type="l", main=name, col="black", xlab="Returns", ylab = "Density")
+  lines(dz, lwd=1, col="darkblue", type="l")
+  lines(dy, lwd=1, col="darkred", type="l")
+}
+```
+
+
+```{r}
+#Graficas de ajuste de distribución
+graph.kdn(tv.L1.return2,adj.tv,"BCA")
+```
+
+```{r}
+nigFit(tv.L1.return2, plots = TRUE)
+```
+
+Contrastan la similitud entre la distribución empírica obtenida y la distribución teórica con los parámetros estimados
+
+
+
+
+
+
+
+
+
